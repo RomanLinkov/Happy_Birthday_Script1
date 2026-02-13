@@ -14,36 +14,48 @@ with sync_playwright() as p:
 
     input("Когда страница загрузится полностью, нажми Enter...")
 
-    # -------------------
-    # 1️⃣ Выводим весь HTML страницы (для проверки)
-    html_content = page.content()
-    print("=== Начало HTML страницы ===")
-    print(html_content[:1000])  # показываем первые 1000 символов
-    print("=== Конец HTML страницы ===\n")
-    # -------------------
+    import re
 
-    # 2️⃣ Ищем все div.bd_name > a
-    birthday_elements = page.locator("div.bd_name a").all()
-    print(f"Найдено элементов с именами друзей: {len(birthday_elements)}")
+    # Ждём появления блоков с именами
+    page.wait_for_selector("div.bd_name", timeout=15000)
 
-    birthdays_today = []
+    # Берём родительский контейнер строки (поднимаемся вверх от bd_name)
+    birthday_rows = page.locator("div.bd_name").locator("xpath=ancestor::div[contains(@class,'birthday')]").all()
 
-    # 3️⃣ Проходим по найденным элементам
-    for i, el in enumerate(birthday_elements, start=1):
-        text = el.text_content()
-        print(f"Элемент {i}: {text}")  # печатаем, что нашёл Python
-        if text:
-            name = text.strip()
-            birthdays_today.append(name)
+    print(f"Найдено строк с днями рождения: {len(birthday_rows)}\n")
 
-    # 4️⃣ Вывод финального списка
-    print("\nСегодня день рождения у:")
-    for name in birthdays_today:
-        print(name)
+    results = []
 
-    # 5️⃣ Сохраняем в файл
+    for i, row in enumerate(birthday_rows, start=1):
+
+        full_text = row.text_content().strip()
+        text_lower = full_text.lower()
+
+        if "сегодня" not in text_lower:
+            continue
+
+        # Имя и ссылка
+        a_tag = row.locator("div.bd_name a")
+
+        if a_tag.count() == 0:
+            continue
+
+        name = a_tag.first.text_content().strip()
+        href = a_tag.first.get_attribute("href")
+
+        # Достаём ID
+        user_id = "не найден"
+        if href:
+            match = re.search(r"/id(\d+)", href)
+            if match:
+                user_id = match.group(1)
+
+        line_output = f"{full_text} | ID: {user_id}"
+
+        print(line_output)
+        results.append(line_output)
+
+    # Сохраняем в файл
     with open("birthdays_today.txt", "w", encoding="utf-8") as f:
-        for name in birthdays_today:
-            f.write(name + "\n")
-
-    browser.close()
+        for line in results:
+            f.write(line + "\n")
