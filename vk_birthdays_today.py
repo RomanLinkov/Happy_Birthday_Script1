@@ -16,46 +16,44 @@ with sync_playwright() as p:
 
     import re
 
-    # Ждём появления блоков с именами
     page.wait_for_selector("div.bd_name", timeout=15000)
 
-    # Берём родительский контейнер строки (поднимаемся вверх от bd_name)
-    birthday_rows = page.locator("div.bd_name").locator("xpath=ancestor::div[contains(@class,'birthday')]").all()
-
-    print(f"Найдено строк с днями рождения: {len(birthday_rows)}\n")
+    birthday_rows = page.locator("div.bd_name").all()
+    print(f"Найдено строк с именами: {len(birthday_rows)}\n")
 
     results = []
 
-    for i, row in enumerate(birthday_rows, start=1):
+    for el in birthday_rows:
 
+        # Имя
+        name = el.locator("a").first.text_content().strip()
+
+        # Родительский контейнер строки
+        row = el.locator("xpath=ancestor::div[1]")
         full_text = row.text_content().strip()
-        text_lower = full_text.lower()
 
-        if "сегодня" not in text_lower:
+        if "сегодня" not in full_text.lower():
             continue
 
-        # Имя и ссылка
-        a_tag = row.locator("div.bd_name a")
+        # Ссылка
+        href = el.locator("a").first.get_attribute("href")
 
-        if a_tag.count() == 0:
-            continue
-
-        name = a_tag.first.text_content().strip()
-        href = a_tag.first.get_attribute("href")
-
-        # Достаём ID
         user_id = "не найден"
+
         if href:
-            match = re.search(r"/id(\d+)", href)
+            # Если формат /id123456
+            match = re.search(r"id(\d+)", href)
             if match:
                 user_id = match.group(1)
+            else:
+                user_id = href  # если это username
 
-        line_output = f"{full_text} | ID: {user_id}"
+        clean_text = f"{name} сегодня отмечает день рождения | ID: {user_id}"
 
-        print(line_output)
-        results.append(line_output)
+        print(clean_text)
+        results.append(clean_text)
 
-    # Сохраняем в файл
+    # Сохранение
     with open("birthdays_today.txt", "w", encoding="utf-8") as f:
         for line in results:
             f.write(line + "\n")
