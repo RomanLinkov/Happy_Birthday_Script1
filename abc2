@@ -1,0 +1,63 @@
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+import time
+import re
+
+PROFILE_PATH = r"C:\Users\Admin\Documents\GitHub\Happy_Birthday_Script1\yandex_profile"
+GREETINGS_FILE = "greetings_ready.txt"
+
+# Читаем весь файл
+with open(GREETINGS_FILE, encoding="utf-8") as f:
+    content = f.read()
+
+# Разделяем на блоки по '------------------------------------------------------------'
+blocks = [b.strip() for b in content.split("------------------------------------------------------------") if b.strip()]
+print(f"Найдено поздравлений: {len(blocks)}")
+
+with sync_playwright() as p:
+    browser = p.chromium.launch_persistent_context(
+        user_data_dir=PROFILE_PATH,
+        headless=False
+    )
+    page = browser.new_page()
+
+    for idx, block in enumerate(blocks, start=1):
+        try:
+            # Получаем ID
+            id_match = re.search(r"ID:\s*/(\S+)", block)
+            if not id_match:
+                print(f"Блок {idx} не содержит ID:\n{block}")
+                continue
+            user_id = id_match.group(1)
+
+            # Получаем текст поздравления
+            greeting_match = re.search(r"Поздравление:\s*(.+)", block, re.DOTALL)
+            if not greeting_match:
+                print(f"Блок {idx} не содержит текста поздравления:\n{block}")
+                continue
+            greeting_text = greeting_match.group(1).strip()
+
+            # Переходим на страницу пользователя
+            page.goto(f"https://vk.com/{user_id}")
+            time.sleep(2)
+
+            # Кнопка "Сообщение" по тексту
+            message_button = page.locator("a:has-text('Сообщение')")
+            message_button.wait_for(state="visible", timeout=15000)
+            message_button.click()
+            print(f"Открыл окно сообщения для {user_id}")
+
+            # Поле для ввода сообщения
+            message_box = page.locator("div[contenteditable='true']").first
+            message_box.wait_for(state="visible", timeout=15000)
+            message_box.fill(greeting_text)
+            print(f"Поздравление вставлено для {user_id}")
+
+            input("Нажмите Enter после отправки сообщения...")
+
+        except Exception as e:
+            print(f"Ошибка при обработке блока {idx}")
+            print(e)
+            continue
+
+    browser.close()

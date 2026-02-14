@@ -4,3 +4,13 @@ birthdays_today.txt
 birthdays_with_dates.txt
 yandex_profile
 debug_page.html
+save_vk_session.py
+greetings_ready.txt
+vk_profile/
+vk_state.json
+generate_vk_greetings.py
+   abc3
+        generate_vk_greetings.py
+        open_vk_messages.py
+vk_profile/
+        vk_state.json
